@@ -49,10 +49,12 @@ async function handleLogin(event) {
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ username, password }),
-            credentials: 'include'
+            credentials: 'include',
+            mode: 'cors'
         });
         
         const data = await response.json();
@@ -64,6 +66,10 @@ async function handleLogin(event) {
                 username: data.username,
                 email: data.email
             };
+            
+            // Cookie ellenőrzése
+            console.log('Cookies:', document.cookie);
+            
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
@@ -81,20 +87,32 @@ async function handleLogin(event) {
 // Kijelentkezés kezelése
 async function handleLogout() {
     try {
+        console.log('Kijelentkezési kísérlet');
         const response = await fetch(`${API_URL}/logout`, {
             method: 'POST',
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'include',
+            mode: 'cors'
         });
         
         if (response.ok) {
             currentUser = null;
+            events = [];
             document.getElementById('mainContent').style.display = 'none';
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('loginForm').reset();
-            events = [];
+            console.log('Sikeres kijelentkezés');
+        } else {
+            const error = await response.json();
+            console.error('Kijelentkezési hiba:', error);
+            alert(error.error || 'Hiba történt a kijelentkezés során');
         }
     } catch (error) {
-        console.error('Hiba:', error);
+        console.error('Hálózati hiba:', error);
+        alert('Hiba történt a szerverrel való kommunikáció során');
     }
 }
 
@@ -384,9 +402,11 @@ async function loadEvents() {
         const response = await fetch(`${API_URL}/events`, {
             method: 'GET',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            credentials: 'include'
+            credentials: 'include',
+            mode: 'cors'
         });
         
         if (response.status === 401) {
@@ -796,12 +816,16 @@ async function loadUsers() {
 async function checkAuth() {
     try {
         console.log('Munkamenet ellenőrzése...');
+        console.log('Cookies:', document.cookie);
+        
         const response = await fetch(`${API_URL}/user`, {
             method: 'GET',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            credentials: 'include'
+            credentials: 'include',
+            mode: 'cors'
         });
         
         if (response.ok) {

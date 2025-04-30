@@ -11,34 +11,39 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: true, // Minden origin-t elfogadunk
+    origin: ['https://calendar-app-wbb8.onrender.com', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['set-cookie']
 }));
 app.use(express.json());
 app.use(express.static('public'));
 app.use(session({
     store: new SQLiteStore({
         db: 'sessions.db',
-        table: 'sessions'
+        table: 'sessions',
+        concurrentDB: true
     }),
     secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
-    resave: false,
+    resave: true,
     saveUninitialized: false,
     name: 'sessionId',
+    proxy: true,
     cookie: { 
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         maxAge: 1000 * 60 * 60 * 24 * 7,
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         httpOnly: true,
-        path: '/'
+        path: '/',
+        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
     }
 }));
 
 // Session debug middleware
 app.use((req, res, next) => {
     console.log('Request URL:', req.url);
+    console.log('Request Origin:', req.headers.origin);
     console.log('Session ID:', req.sessionID);
     console.log('Session:', req.session);
     console.log('Cookies:', req.headers.cookie);
@@ -139,6 +144,7 @@ const requireLogin = (req, res, next) => {
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     console.log('Login attempt:', username);
+    console.log('Request headers:', req.headers);
     
     db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
         if (err) {
@@ -154,19 +160,29 @@ app.post('/api/login', (req, res) => {
             const validPassword = await bcrypt.compare(password, user.password);
             if (validPassword) {
                 console.log('Login successful:', username);
-                req.session.userId = user.id;
-                req.session.username = user.username;
-                
-                return req.session.save((err) => {
+                req.session.regenerate((err) => {
                     if (err) {
-                        console.error('Session save error:', err);
-                        return res.status(500).json({ error: 'Hiba történt a session mentése során' });
+                        console.error('Session regenerate error:', err);
+                        return res.status(500).json({ error: 'Hiba történt a munkamenet létrehozása során' });
                     }
-                    console.log('Session saved successfully:', req.sessionID);
-                    return res.json({
-                        id: user.id,
-                        username: user.username,
-                        email: user.email
+                    
+                    req.session.userId = user.id;
+                    req.session.username = user.username;
+                    
+                    req.session.save((err) => {
+                        if (err) {
+                            console.error('Session save error:', err);
+                            return res.status(500).json({ error: 'Hiba történt a munkamenet mentése során' });
+                        }
+                        
+                        console.log('Session saved successfully:', req.sessionID);
+                        console.log('Response headers:', res.getHeaders());
+                        
+                        return res.json({
+                            id: user.id,
+                            username: user.username,
+                            email: user.email
+                        });
                     });
                 });
             } else {
@@ -182,12 +198,17 @@ app.post('/api/login', (req, res) => {
 
 // Kijelentkezés
 app.post('/api/logout', (req, res) => {
-    req.session.destroy(err => {
+    const sessionId = req.sessionID;
+    console.log('Logout attempt - Session ID:', sessionId);
+    
+    req.session.destroy((err) => {
         if (err) {
-            res.status(500).json({ error: 'Hiba történt a kijelentkezés során' });
-            return;
+            console.error('Session destroy error:', err);
+            return res.status(500).json({ error: 'Hiba történt a kijelentkezés során' });
         }
-        res.json({ message: 'Sikeres kijelentkezés' });
+        res.clearCookie('sessionId');
+        console.log('Session destroyed successfully:', sessionId);
+        return res.json({ message: 'Sikeres kijelentkezés' });
     });
 });
 
