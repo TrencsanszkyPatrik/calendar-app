@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Környezeti változók
+.env
+.env.local
+.env.*.local
+
+# Adatbázis fájlok
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE fájlok
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Operációs rendszer fájlok
+.DS_Store
+Thumbs.db 
