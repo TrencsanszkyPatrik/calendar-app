@@ -7,6 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Supabase kliens inicializálása
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -36,7 +37,7 @@ supabase.from('users').select('count').then(({ data, error }) => {
 
 // Middleware
 app.use(cors({
-    origin: true,
+    origin: isProduction ? 'https://calendar-app-wbb8.onrender.com' : 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -44,11 +45,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static('public'));
 app.use(session({
-    secret: 'titkos_kulcs_ide',
+    secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7 // 1 hét
     }
 }));
