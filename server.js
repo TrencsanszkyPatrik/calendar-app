@@ -1,365 +1,270 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Környezeti változók beállítása
-const isProduction = process.env.NODE_ENV === 'production';
-const ALLOWED_ORIGINS = [
-    'https://calendar-app-wbb8.onrender.com',
-    'http://localhost:3000'
-];
+// Supabase kliens inicializálása
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// CORS beállítások
+// Middleware
 app.use(cors({
-    origin: true, // Minden origin-t fogad el
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 app.use(express.json());
 app.use(express.static('public'));
-
-// Session beállítások
 app.use(session({
-    store: new SQLiteStore({
-        db: 'sessions.db',
-        table: 'sessions'
-    }),
     secret: 'titkos_kulcs_ide',
     resave: false,
     saveUninitialized: false,
     cookie: { 
         secure: false,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
-        sameSite: 'lax',
-        httpOnly: true
+        maxAge: 1000 * 60 * 60 * 24 * 7 // 1 hét
     }
 }));
 
-// Session debug middleware
-app.use((req, res, next) => {
-    console.log('Request URL:', req.url);
-    console.log('Session ID:', req.sessionID);
-    console.log('Session:', req.session);
-    next();
-});
-
-// Adatbázis inicializálása
-const db = new sqlite3.Database(path.join(__dirname, 'calendar.db'), (err) => {
-    if (err) {
-        console.error(err.message);
-    }
-    console.log('Csatlakozva az adatbázishoz.');
-});
-
-// Táblák létrehozása és felhasználók feltöltése
-db.serialize(() => {
-    // Felhasználók tábla
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Események tábla
-    db.run(`CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        date TEXT NOT NULL,
-        startTime TEXT NOT NULL,
-        endTime TEXT NOT NULL,
-        eventType TEXT NOT NULL,
-        creator_id INTEGER NOT NULL,
-        is_shared BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(creator_id) REFERENCES users(id)
-    )`);
-
-    // Esemény megosztások tábla
-    db.run(`CREATE TABLE IF NOT EXISTS event_shares (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(event_id) REFERENCES events(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-
-    // Ellenőrizzük, hogy vannak-e már felhasználók
-    db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
-        if (err) {
-            console.error('Hiba a felhasználók számának lekérdezésekor:', err);
-            return;
-        }
-
-        // Ha nincsenek felhasználók, akkor létrehozzuk az alap felhasználókat
-        if (row.count === 0) {
-            const users = [
-                { username: 'Patrik', password: 'patrik123', email: 'patrik@example.com' },
-                { username: 'Kata', password: 'kata123', email: 'kata@example.com' }
-            ];
-
-            users.forEach(user => {
-                bcrypt.hash(user.password, 10, (err, hash) => {
-                    if (err) {
-                        console.error('Hiba a jelszó titkosítása során:', err);
-                        return;
-                    }
-                    db.run(`INSERT INTO users (username, password, email) VALUES (?, ?, ?)`,
-                        [user.username, hash, user.email],
-                        (err) => {
-                            if (err) {
-                                console.error('Hiba a felhasználó létrehozása során:', err);
-                            } else {
-                                console.log(`Felhasználó létrehozva: ${user.username}`);
-                            }
-                        });
-                });
-            });
-        }
-    });
-});
-
-// Middleware a bejelentkezés ellenőrzésére
-const requireLogin = (req, res, next) => {
-    console.log('Session check:', req.session);
-    if (!req.session.userId) {
-        console.log('No user ID in session');
-        res.status(401).json({ error: 'Bejelentkezés szükséges' });
-        return;
-    }
-    next();
-};
-
 // Bejelentkezés
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Login attempt:', username);
-    console.log('Request headers:', req.headers);
     
-    db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: 'Hiba történt a bejelentkezés során' });
-        }
-        if (!user) {
-            console.log('User not found:', username);
+    try {
+        // Felhasználó keresése
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single();
+        
+        if (error) throw error;
+        if (!users) {
             return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
         }
-        
-        try {
-            const validPassword = await bcrypt.compare(password, user.password);
-            if (validPassword) {
-                console.log('Login successful:', username);
-                
-                // Session újragenerálása
-                req.session.regenerate((err) => {
-                    if (err) {
-                        console.error('Session regenerate error:', err);
-                        return res.status(500).json({ error: 'Hiba történt a munkamenet létrehozása során' });
-                    }
-                    
-                    // Session adatok beállítása
-                    req.session.userId = user.id;
-                    req.session.username = user.username;
-                    
-                    // Session mentése
-                    req.session.save((err) => {
-                        if (err) {
-                            console.error('Session save error:', err);
-                            return res.status(500).json({ error: 'Hiba történt a munkamenet mentése során' });
-                        }
-                        
-                        // Cookie beállítások ellenőrzése
-                        const sessionCookie = req.session.cookie;
-                        console.log('Session cookie settings:', {
-                            secure: sessionCookie.secure,
-                            httpOnly: sessionCookie.httpOnly,
-                            domain: sessionCookie.domain,
-                            path: sessionCookie.path,
-                            sameSite: sessionCookie.sameSite,
-                            maxAge: sessionCookie.maxAge
-                        });
-                        
-                        // Válasz küldése
-                        return res.json({
-                            id: user.id,
-                            username: user.username,
-                            email: user.email,
-                            sessionId: req.sessionID
-                        });
-                    });
-                });
-            } else {
-                console.log('Invalid password for:', username);
-                return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
-            }
-        } catch (error) {
-            console.error('Password compare error:', error);
-            return res.status(500).json({ error: 'Hiba történt a jelszó ellenőrzése során' });
+
+        // Jelszó ellenőrzése
+        const validPassword = await bcrypt.compare(password, users.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
         }
-    });
+
+        // Session beállítása
+        req.session.userId = users.id;
+        res.json({ 
+            id: users.id,
+            username: users.username,
+            email: users.email
+        });
+    } catch (error) {
+        console.error('Hiba:', error);
+        res.status(500).json({ error: 'Hiba történt a bejelentkezés során' });
+    }
+});
+
+// Események lekérése
+app.get('/api/events', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
+    }
+
+    try {
+        const { data: events, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                creator:creator_id(username),
+                shared_users:event_shares(user:users(username))
+            `)
+            .or(`creator_id.eq.${req.session.userId},is_shared.eq.true,event_shares.user_id.eq.${req.session.userId}`);
+
+        if (error) throw error;
+
+        // Átalakítjuk a választ a régi formátumra
+        const formattedEvents = events.map(event => ({
+            ...event,
+            creator_name: event.creator?.username,
+            shared_with: event.shared_users?.map(share => share.user.username).join(', ')
+        }));
+
+        res.json(formattedEvents);
+    } catch (error) {
+        console.error('Hiba:', error);
+        res.status(500).json({ error: 'Hiba történt az események lekérése során' });
+    }
+});
+
+// Új esemény létrehozása
+app.post('/api/events', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
+    }
+
+    const { title, description, date, startTime, endTime, eventType, is_shared, shared_with } = req.body;
+
+    if (!title || !date || !startTime || !endTime || !eventType) {
+        return res.status(400).json({ error: 'Hiányzó kötelező mezők' });
+    }
+
+    try {
+        // Esemény létrehozása
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .insert([{
+                title,
+                description,
+                date,
+                startTime,
+                endTime,
+                eventType,
+                creator_id: req.session.userId,
+                is_shared: is_shared ? true : false
+            }])
+            .select()
+            .single();
+
+        if (eventError) throw eventError;
+
+        // Megosztások létrehozása
+        if (is_shared && shared_with && shared_with.length > 0) {
+            const shares = shared_with.map(userId => ({
+                event_id: event.id,
+                user_id: userId
+            }));
+
+            const { error: shareError } = await supabase
+                .from('event_shares')
+                .insert(shares);
+
+            if (shareError) throw shareError;
+        }
+
+        res.json({ id: event.id });
+    } catch (error) {
+        console.error('Hiba:', error);
+        res.status(500).json({ error: 'Hiba történt az esemény létrehozása során' });
+    }
+});
+
+// Esemény törlése
+app.delete('/api/events/:id', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
+    }
+
+    try {
+        // Először ellenőrizzük, hogy a felhasználó tulajdonosa-e az eseménynek
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select()
+            .eq('id', req.params.id)
+            .eq('creator_id', req.session.userId)
+            .single();
+
+        if (eventError || !event) {
+            return res.status(403).json({ error: 'Nincs jogosultság a törléshez' });
+        }
+
+        // Megosztások törlése
+        await supabase
+            .from('event_shares')
+            .delete()
+            .eq('event_id', req.params.id);
+
+        // Esemény törlése
+        const { error: deleteError } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (deleteError) throw deleteError;
+
+        res.json({ message: 'Esemény törölve' });
+    } catch (error) {
+        console.error('Hiba:', error);
+        res.status(500).json({ error: 'Hiba történt az esemény törlése során' });
+    }
+});
+
+// Felhasználói adatok lekérése
+app.get('/api/user', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
+    }
+
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('id, username, email')
+            .eq('id', req.session.userId)
+            .single();
+
+        if (error) throw error;
+        if (!user) {
+            return res.status(404).json({ error: 'Felhasználó nem található' });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error('Hiba:', error);
+        res.status(500).json({ error: 'Hiba történt a felhasználói adatok lekérése során' });
+    }
 });
 
 // Kijelentkezés
 app.post('/api/logout', (req, res) => {
-    const sessionId = req.sessionID;
-    console.log('Logout attempt - Session ID:', sessionId);
-    
-    req.session.destroy((err) => {
+    req.session.destroy(err => {
         if (err) {
-            console.error('Session destroy error:', err);
+            console.error('Hiba a kijelentkezés során:', err);
             return res.status(500).json({ error: 'Hiba történt a kijelentkezés során' });
         }
-        res.clearCookie('sessionId');
-        console.log('Session destroyed successfully:', sessionId);
-        return res.json({ message: 'Sikeres kijelentkezés' });
+        res.json({ message: 'Sikeres kijelentkezés' });
     });
 });
 
-// Események lekérése
-app.get('/api/events', (req, res) => {
-    console.log('Events request - Session:', req.session);
-    console.log('Events request - Session ID:', req.sessionID);
+// Felhasználó regisztráció
+app.post('/api/register', async (req, res) => {
+    const { username, email, password } = req.body;
     
-    if (!req.session || !req.session.userId) {
-        console.log('No session or user ID found');
-        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
+    if (!username || !email || !password) {
+        return res.status(400).json({ error: 'Hiányzó kötelező mezők' });
     }
 
-    const userId = req.session.userId;
-    console.log('Fetching events for user:', userId);
-    
-    db.all(`
-        SELECT e.*, u.username as creator_name,
-        GROUP_CONCAT(DISTINCT us.username) as shared_with
-        FROM events e
-        LEFT JOIN users u ON e.creator_id = u.id
-        LEFT JOIN event_shares es ON e.id = es.event_id
-        LEFT JOIN users us ON es.user_id = us.id
-        WHERE e.creator_id = ? OR e.is_shared = 1 OR es.user_id = ?
-        GROUP BY e.id
-    `, [userId, userId], (err, rows) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: err.message });
+    try {
+        // Jelszó titkosítása
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Felhasználó létrehozása
+        const { data: user, error } = await supabase
+            .from('users')
+            .insert([{
+                username,
+                email,
+                password: hashedPassword
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({ 
+            id: user.id,
+            username: user.username,
+            email: user.email
+        });
+    } catch (error) {
+        console.error('Hiba:', error);
+        if (error.code === '23505') { // Egyedi mező megsértése
+            return res.status(400).json({ error: 'A felhasználónév vagy email már foglalt' });
         }
-        console.log('Events found:', rows.length);
-        return res.json(rows);
-    });
-});
-
-// Új esemény létrehozása
-app.post('/api/events', requireLogin, (req, res) => {
-    const { title, description, date, startTime, endTime, eventType, is_shared, shared_with } = req.body;
-    const creator_id = req.session.userId;
-
-    if (!title || !date || !startTime || !endTime || !eventType) {
-        res.status(400).json({ error: 'Hiányzó kötelező mezők' });
-        return;
+        res.status(500).json({ error: 'Hiba történt a regisztráció során' });
     }
-
-    db.run('INSERT INTO events (title, description, date, startTime, endTime, eventType, creator_id, is_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [title, description, date, startTime, endTime, eventType, creator_id, is_shared ? 1 : 0],
-        function(err) {
-            if (err) {
-                console.error('Hiba az esemény létrehozásakor:', err);
-                res.status(500).json({ error: 'Hiba történt az esemény létrehozásakor' });
-                return;
-            }
-            
-            const eventId = this.lastID;
-            
-            // Ha van megosztás, akkor azt is mentsük
-            if (is_shared && shared_with && shared_with.length > 0) {
-                const shareValues = shared_with.map(userId => 
-                    `(${eventId}, ${parseInt(userId)})`
-                ).join(',');
-                
-                db.run(`INSERT INTO event_shares (event_id, user_id) VALUES ${shareValues}`,
-                    function(err) {
-                        if (err) {
-                            console.error('Hiba a megosztás létrehozásakor:', err);
-                            res.status(500).json({ error: 'Hiba történt a megosztás létrehozásakor' });
-                            return;
-                        }
-                        res.json({ id: eventId });
-                    });
-            } else {
-                res.json({ id: eventId });
-            }
-        });
-});
-
-// Esemény törlése
-app.delete('/api/events/:id', requireLogin, (req, res) => {
-    const userId = req.session.userId;
-    db.run('DELETE FROM events WHERE id = ? AND creator_id = ?',
-        [req.params.id, userId],
-        function(err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
-            if (this.changes === 0) {
-                res.status(403).json({ error: 'Nincs jogosultság a törléshez' });
-                return;
-            }
-            // Megosztások törlése
-            db.run('DELETE FROM event_shares WHERE event_id = ?', [req.params.id]);
-            res.json({ message: 'Esemény törölve' });
-        });
-});
-
-// Felhasználók lekérése (megosztáshoz)
-app.get('/api/users', requireLogin, (req, res) => {
-    const userId = req.session.userId;
-    db.all('SELECT id, username, email FROM users WHERE id != ?',
-        [userId],
-        (err, rows) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
-            res.json(rows);
-        });
-});
-
-// Felhasználói adatok lekérése
-app.get('/api/user', (req, res) => {
-    console.log('User request - Headers:', req.headers);
-    console.log('User request - Session:', req.session);
-    console.log('User request - Session ID:', req.sessionID);
-    console.log('User request - Cookies:', req.headers.cookie);
-    
-    if (!req.session || !req.session.userId) {
-        console.log('No session or user ID found');
-        return res.status(401).json({ error: 'Bejelentkezés szükséges' });
-    }
-    
-    db.get('SELECT id, username, email FROM users WHERE id = ?', [req.session.userId], (err, user) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: err.message });
-        }
-        if (!user) {
-            console.log('User not found:', req.session.userId);
-            return res.status(404).json({ error: 'Felhasználó nem található' });
-        }
-        console.log('User found:', user);
-        return res.json(user);
-    });
 });
 
 // Szerver indítása
