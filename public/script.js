@@ -45,6 +45,7 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
+        console.log('Bejelentkezési kísérlet:', username);
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: {
@@ -54,25 +55,26 @@ async function handleLogin(event) {
             credentials: 'include'
         });
         
+        const data = await response.json();
+        
         if (response.ok) {
-            const user = await response.json();
+            console.log('Sikeres bejelentkezés:', data);
             currentUser = {
-                id: user.id,
-                username: user.username,
-                email: user.email
+                id: data.id,
+                username: data.username,
+                email: data.email
             };
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
             initCalendar();
-            console.log('Sikeres bejelentkezés:', currentUser);
         } else {
-            const error = await response.json();
-            alert(error.error || 'Hiba történt a bejelentkezés során');
+            console.error('Bejelentkezési hiba:', data.error);
+            alert(data.error || 'Hiba történt a bejelentkezés során');
         }
     } catch (error) {
-        console.error('Hiba:', error);
-        alert('Hiba történt a bejelentkezés során');
+        console.error('Hálózati hiba:', error);
+        alert('Hiba történt a szerverrel való kommunikáció során');
     }
 }
 
@@ -372,16 +374,24 @@ window.addEventListener('resize', () => {
 
 // Események betöltése
 async function loadEvents() {
+    if (!currentUser) {
+        console.log('Nincs bejelentkezett felhasználó, nem töltjük be az eseményeket');
+        return;
+    }
+
     try {
+        console.log('Események betöltése...');
         const response = await fetch(`${API_URL}/events`, {
-            credentials: 'include',
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'include'
         });
         
         if (response.status === 401) {
-            console.log('Nincs bejelentkezve, megjelenítjük a bejelentkezési ablakot');
+            console.log('Lejárt munkamenet, újra be kell jelentkezni');
+            currentUser = null;
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
             return;
@@ -389,16 +399,18 @@ async function loadEvents() {
         
         if (response.ok) {
             events = await response.json();
-            console.log('Események betöltve:', events);
+            console.log('Események sikeresen betöltve:', events.length);
             updateEventCounts();
             if (currentUser) {
                 updateWeeklyEvents();
             }
         } else {
-            console.error('Hiba az események betöltésekor:', response.status);
+            const error = await response.json();
+            console.error('Hiba az események betöltésekor:', error);
+            events = [];
         }
     } catch (error) {
-        console.error('Hiba az események betöltésekor:', error);
+        console.error('Hálózati hiba az események betöltésekor:', error);
         events = [];
     }
 }
@@ -783,32 +795,34 @@ async function loadUsers() {
 // Bejelentkezés ellenőrzése
 async function checkAuth() {
     try {
+        console.log('Munkamenet ellenőrzése...');
         const response = await fetch(`${API_URL}/user`, {
-            credentials: 'include',
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'include'
         });
         
         if (response.ok) {
             const user = await response.json();
+            console.log('Érvényes munkamenet:', user);
             currentUser = {
                 id: user.id,
                 username: user.username,
                 email: user.email
             };
-            console.log('Felhasználó bejelentkezve:', currentUser);
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
             initCalendar();
         } else {
-            console.log('Nincs bejelentkezve, megjelenítjük a bejelentkezési ablakot');
+            console.log('Nincs érvényes munkamenet');
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
         }
     } catch (error) {
-        console.error('Hiba:', error);
+        console.error('Hiba a munkamenet ellenőrzésekor:', error);
         document.getElementById('authModal').style.display = 'block';
         document.getElementById('mainContent').style.display = 'none';
     }
