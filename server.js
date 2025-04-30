@@ -35,25 +35,47 @@ supabase.from('users').select('count').then(({ data, error }) => {
     }
 });
 
-// Middleware
-app.use(cors({
+// CORS beállítások
+const corsOptions = {
     origin: isProduction ? 'https://calendar-app-wbb8.onrender.com' : 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['set-cookie']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static('public'));
-app.use(session({
+
+// Session beállítások
+const sessionConfig = {
     secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId',
     cookie: { 
         secure: isProduction,
         sameSite: isProduction ? 'none' : 'lax',
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 1 hét
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
+        httpOnly: true,
+        domain: isProduction ? '.onrender.com' : 'localhost'
     }
-}));
+};
+
+if (isProduction) {
+    app.set('trust proxy', 1); // trust first proxy
+}
+
+app.use(session(sessionConfig));
+
+// Debug middleware
+app.use((req, res, next) => {
+    console.log('Session:', req.session);
+    console.log('Cookies:', req.cookies);
+    console.log('Headers:', req.headers);
+    next();
+});
 
 // Bejelentkezés
 app.post('/api/login', async (req, res) => {

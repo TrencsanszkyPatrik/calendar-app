@@ -1,5 +1,15 @@
-// API URL
-const API_URL = 'https://calendar-app-wbb8.onrender.com/api';
+// API URL beállítása
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api'
+    : 'https://calendar-app-wbb8.onrender.com/api';
+
+// Fetch alapbeállítások
+const fetchConfig = {
+    credentials: 'include',
+    headers: {
+        'Content-Type': 'application/json'
+    }
+};
 
 // Globális változók
 let currentUser = null;
@@ -39,8 +49,9 @@ currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() 
 // Bejelentkezés kezelése
 async function handleLogin(event) {
     event.preventDefault();
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
     
     try {
         console.log('Bejelentkezési kísérlet:', username);
@@ -49,13 +60,8 @@ async function handleLogin(event) {
         
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ username, password }),
-            credentials: 'include',
-            mode: 'cors'
+            ...fetchConfig,
+            body: JSON.stringify({ username, password })
         });
         
         const data = await response.json();
@@ -63,59 +69,41 @@ async function handleLogin(event) {
         
         if (response.ok) {
             console.log('Sikeres bejelentkezés:', data);
-            currentUser = {
-                id: data.id,
-                username: data.username,
-                email: data.email,
-                sessionId: data.sessionId
-            };
-            
-            // Cookie ellenőrzése
             console.log('Bejelentkezés utáni cookie-k:', document.cookie);
             
-            document.getElementById('authModal').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
+            // Felhasználói adatok mentése
+            localStorage.setItem('user', JSON.stringify(data));
+            
+            // Események betöltése és naptár inicializálása
             await loadEvents();
-            initCalendar();
+            initializeCalendar();
+            
+            // UI frissítése
+            showCalendarView();
         } else {
-            console.error('Bejelentkezési hiba:', data.error);
-            alert(data.error || 'Hiba történt a bejelentkezés során');
+            console.log('Bejelentkezési hiba:', data.error);
+            alert('Bejelentkezési hiba: ' + data.error);
         }
     } catch (error) {
-        console.error('Hálózati hiba:', error);
-        alert('Hiba történt a szerverrel való kommunikáció során');
+        console.error('Hiba:', error);
+        alert('Hiba történt a bejelentkezés során');
     }
 }
 
-// Kijelentkezés kezelése
+// Kijelentkezés
 async function handleLogout() {
     try {
-        console.log('Kijelentkezési kísérlet');
         const response = await fetch(`${API_URL}/logout`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            credentials: 'include',
-            mode: 'cors'
+            ...fetchConfig
         });
-        
+
         if (response.ok) {
-            currentUser = null;
-            events = [];
-            document.getElementById('mainContent').style.display = 'none';
-            document.getElementById('authModal').style.display = 'block';
-            document.getElementById('loginForm').reset();
-            console.log('Sikeres kijelentkezés');
-        } else {
-            const error = await response.json();
-            console.error('Kijelentkezési hiba:', error);
-            alert(error.error || 'Hiba történt a kijelentkezés során');
+            localStorage.removeItem('user');
+            showLoginView();
         }
     } catch (error) {
-        console.error('Hálózati hiba:', error);
-        alert('Hiba történt a szerverrel való kommunikáció során');
+        console.error('Hiba:', error);
     }
 }
 
@@ -395,46 +383,25 @@ window.addEventListener('resize', () => {
 
 // Események betöltése
 async function loadEvents() {
-    if (!currentUser) {
-        console.log('Nincs bejelentkezett felhasználó, nem töltjük be az eseményeket');
-        return;
-    }
-
+    console.log('Események betöltése...');
     try {
-        console.log('Események betöltése...');
-        const response = await fetch(`${API_URL}/events`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            credentials: 'include',
-            mode: 'cors'
-        });
+        const response = await fetch(`${API_URL}/events`, fetchConfig);
         
         if (response.status === 401) {
             console.log('Lejárt munkamenet, újra be kell jelentkezni');
-            currentUser = null;
-            document.getElementById('authModal').style.display = 'block';
-            document.getElementById('mainContent').style.display = 'none';
-            return;
+            showLoginView();
+            return [];
         }
         
-        if (response.ok) {
-            events = await response.json();
-            console.log('Események sikeresen betöltve:', events.length);
-            updateEventCounts();
-            if (currentUser) {
-                updateWeeklyEvents();
-            }
-        } else {
-            const error = await response.json();
-            console.error('Hiba az események betöltésekor:', error);
-            events = [];
+        if (!response.ok) {
+            throw new Error('Hiba történt az események betöltése során');
         }
+        
+        const events = await response.json();
+        return events;
     } catch (error) {
-        console.error('Hálózati hiba az események betöltésekor:', error);
-        events = [];
+        console.error('Hiba:', error);
+        return [];
     }
 }
 
@@ -782,31 +749,21 @@ async function addEvent(event) {
 
 // Esemény törlése
 async function deleteEvent(id) {
-    if (!confirm('Biztosan törölni szeretnéd ezt az eseményt?')) {
-        return;
-    }
-    
     try {
         const response = await fetch(`${API_URL}/events/${id}`, {
             method: 'DELETE',
-            credentials: 'include'
+            ...fetchConfig
         });
-        
-        if (response.ok) {
-            await loadEvents();
-            updateWeeklyEvents();
-            updateEventCounts();
-            generateCalendar(); // Naptár frissítése
-            if (selectedDate) {
-                showDayDetails(parseInt(selectedDate.split('-')[2]), parseInt(selectedDate.split('-')[1]), parseInt(selectedDate.split('-')[0])); // Napi nézet frissítése
-            }
-        } else {
-            const error = await response.json();
-            alert(error.error || 'Hiba történt az esemény törlésekor');
+
+        if (response.status === 401) {
+            showLoginView();
+            return false;
         }
+
+        return response.ok;
     } catch (error) {
         console.error('Hiba:', error);
-        alert('Hiba történt az esemény törlésekor');
+        return false;
     }
 }
 
