@@ -46,12 +46,27 @@ let events = [];
 let currentWeekStart = new Date();
 currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1);
 
+// Nézet kezelő függvények
+function showLoginView() {
+    document.getElementById('authModal').style.display = 'block';
+    document.getElementById('mainContent').style.display = 'none';
+    // Form mezők törlése
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.reset();
+}
+
+function showCalendarView() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    initCalendar();
+}
+
 // Bejelentkezés kezelése
 async function handleLogin(event) {
     event.preventDefault();
     
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
     
     try {
         console.log('Bejelentkezési kísérlet:', username);
@@ -72,14 +87,15 @@ async function handleLogin(event) {
             console.log('Bejelentkezés utáni cookie-k:', document.cookie);
             
             // Felhasználói adatok mentése
+            currentUser = data;
             localStorage.setItem('user', JSON.stringify(data));
-            
-            // Események betöltése és naptár inicializálása
-            await loadEvents();
-            initializeCalendar();
             
             // UI frissítése
             showCalendarView();
+            
+            // Események betöltése és naptár inicializálása
+            await loadEvents();
+            updateWeeklyEvents();
         } else {
             console.log('Bejelentkezési hiba:', data.error);
             alert('Bejelentkezési hiba: ' + data.error);
@@ -779,39 +795,29 @@ async function checkAuth() {
         console.log('API URL:', API_URL);
         console.log('Current cookies:', document.cookie);
         
-        const response = await fetch(`${API_URL}/user`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            credentials: 'include',
-            mode: 'cors'
-        });
+        const response = await fetch(`${API_URL}/user`, fetchConfig);
+        
+        if (response.status === 401) {
+            console.log('Nincs érvényes munkamenet');
+            showLoginView();
+            return;
+        }
         
         const data = await response.json();
         console.log('Szerver válasz:', data);
         
         if (response.ok) {
             console.log('Érvényes munkamenet:', data);
-            currentUser = {
-                id: data.id,
-                username: data.username,
-                email: data.email
-            };
-            document.getElementById('authModal').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
+            currentUser = data;
+            showCalendarView();
             await loadEvents();
-            initCalendar();
         } else {
             console.log('Nincs érvényes munkamenet:', data.error);
-            document.getElementById('authModal').style.display = 'block';
-            document.getElementById('mainContent').style.display = 'none';
+            showLoginView();
         }
     } catch (error) {
         console.error('Hiba a munkamenet ellenőrzésekor:', error);
-        document.getElementById('authModal').style.display = 'block';
-        document.getElementById('mainContent').style.display = 'none';
+        showLoginView();
     }
 }
 
