@@ -1,15 +1,11 @@
 services:
   - type: web
-    name: calendar-app-wbb8
+    name: calendar-app
     env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
-      - key: SESSION_SECRET
-        value: titkos_kulcs_ide
-    healthCheckPath: /
-    autoDeploy: true 
+        value: 10000 

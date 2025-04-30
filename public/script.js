@@ -1,7 +1,5 @@
 // API URL
-const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000/api'
-    : 'https://calendar-app-wbb8.onrender.com/api';
+const API_URL = 'https://calendar-app-wbb8.onrender.com/api';
 
 // Globális változók
 let currentUser = null;
@@ -46,6 +44,9 @@ async function handleLogin(event) {
     
     try {
         console.log('Bejelentkezési kísérlet:', username);
+        console.log('API URL:', API_URL);
+        console.log('Current cookies:', document.cookie);
+        
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: {
@@ -58,17 +59,19 @@ async function handleLogin(event) {
         });
         
         const data = await response.json();
+        console.log('Szerver válasz:', data);
         
         if (response.ok) {
             console.log('Sikeres bejelentkezés:', data);
             currentUser = {
                 id: data.id,
                 username: data.username,
-                email: data.email
+                email: data.email,
+                sessionId: data.sessionId
             };
             
             // Cookie ellenőrzése
-            console.log('Cookies:', document.cookie);
+            console.log('Bejelentkezés utáni cookie-k:', document.cookie);
             
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
@@ -816,7 +819,8 @@ async function loadUsers() {
 async function checkAuth() {
     try {
         console.log('Munkamenet ellenőrzése...');
-        console.log('Cookies:', document.cookie);
+        console.log('API URL:', API_URL);
+        console.log('Current cookies:', document.cookie);
         
         const response = await fetch(`${API_URL}/user`, {
             method: 'GET',
@@ -828,20 +832,22 @@ async function checkAuth() {
             mode: 'cors'
         });
         
+        const data = await response.json();
+        console.log('Szerver válasz:', data);
+        
         if (response.ok) {
-            const user = await response.json();
-            console.log('Érvényes munkamenet:', user);
+            console.log('Érvényes munkamenet:', data);
             currentUser = {
-                id: user.id,
-                username: user.username,
-                email: user.email
+                id: data.id,
+                username: data.username,
+                email: data.email
             };
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
             initCalendar();
         } else {
-            console.log('Nincs érvényes munkamenet');
+            console.log('Nincs érvényes munkamenet:', data.error);
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
         }

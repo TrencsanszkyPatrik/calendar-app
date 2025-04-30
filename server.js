@@ -9,44 +9,46 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
+// Környezeti változók beállítása
+const isProduction = process.env.NODE_ENV === 'production';
+const ALLOWED_ORIGINS = [
+    'https://calendar-app-wbb8.onrender.com',
+    'http://localhost:3000'
+];
+
+// CORS beállítások
 app.use(cors({
-    origin: ['https://calendar-app-wbb8.onrender.com', 'http://localhost:3000'],
+    origin: true, // Minden origin-t fogad el
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['set-cookie']
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 app.use(express.static('public'));
+
+// Session beállítások
 app.use(session({
     store: new SQLiteStore({
         db: 'sessions.db',
-        table: 'sessions',
-        concurrentDB: true
+        table: 'sessions'
     }),
-    secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
-    resave: true,
+    secret: 'titkos_kulcs_ide',
+    resave: false,
     saveUninitialized: false,
-    name: 'sessionId',
-    proxy: true,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 1000 * 60 * 60 * 24 * 7,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        httpOnly: true,
-        path: '/',
-        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
+        sameSite: 'lax',
+        httpOnly: true
     }
 }));
 
 // Session debug middleware
 app.use((req, res, next) => {
     console.log('Request URL:', req.url);
-    console.log('Request Origin:', req.headers.origin);
     console.log('Session ID:', req.sessionID);
     console.log('Session:', req.session);
-    console.log('Cookies:', req.headers.cookie);
     next();
 });
 
@@ -160,28 +162,42 @@ app.post('/api/login', (req, res) => {
             const validPassword = await bcrypt.compare(password, user.password);
             if (validPassword) {
                 console.log('Login successful:', username);
+                
+                // Session újragenerálása
                 req.session.regenerate((err) => {
                     if (err) {
                         console.error('Session regenerate error:', err);
                         return res.status(500).json({ error: 'Hiba történt a munkamenet létrehozása során' });
                     }
                     
+                    // Session adatok beállítása
                     req.session.userId = user.id;
                     req.session.username = user.username;
                     
+                    // Session mentése
                     req.session.save((err) => {
                         if (err) {
                             console.error('Session save error:', err);
                             return res.status(500).json({ error: 'Hiba történt a munkamenet mentése során' });
                         }
                         
-                        console.log('Session saved successfully:', req.sessionID);
-                        console.log('Response headers:', res.getHeaders());
+                        // Cookie beállítások ellenőrzése
+                        const sessionCookie = req.session.cookie;
+                        console.log('Session cookie settings:', {
+                            secure: sessionCookie.secure,
+                            httpOnly: sessionCookie.httpOnly,
+                            domain: sessionCookie.domain,
+                            path: sessionCookie.path,
+                            sameSite: sessionCookie.sameSite,
+                            maxAge: sessionCookie.maxAge
+                        });
                         
+                        // Válasz küldése
                         return res.json({
                             id: user.id,
                             username: user.username,
-                            email: user.email
+                            email: user.email,
+                            sessionId: req.sessionID
                         });
                     });
                 });
@@ -322,8 +338,10 @@ app.get('/api/users', requireLogin, (req, res) => {
 
 // Felhasználói adatok lekérése
 app.get('/api/user', (req, res) => {
+    console.log('User request - Headers:', req.headers);
     console.log('User request - Session:', req.session);
     console.log('User request - Session ID:', req.sessionID);
+    console.log('User request - Cookies:', req.headers.cookie);
     
     if (!req.session || !req.session.userId) {
         console.log('No session or user ID found');
