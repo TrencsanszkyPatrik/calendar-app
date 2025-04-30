@@ -74,26 +74,38 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
-    // Fix felhasználók létrehozása
-    const users = [
-        { username: 'Patrik', password: 'patrik123', email: 'patrik@example.com' },
-        { username: 'Kata', password: 'kata123', email: 'kata@example.com' }
-    ];
+    // Ellenőrizzük, hogy vannak-e már felhasználók
+    db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+        if (err) {
+            console.error('Hiba a felhasználók számának lekérdezésekor:', err);
+            return;
+        }
 
-    users.forEach(user => {
-        bcrypt.hash(user.password, 10, (err, hash) => {
-            if (err) {
-                console.error('Hiba a jelszó titkosítása során:', err);
-                return;
-            }
-            db.run(`INSERT OR IGNORE INTO users (username, password, email) VALUES (?, ?, ?)`,
-                [user.username, hash, user.email],
-                (err) => {
+        // Ha nincsenek felhasználók, akkor létrehozzuk az alap felhasználókat
+        if (row.count === 0) {
+            const users = [
+                { username: 'Patrik', password: 'patrik123', email: 'patrik@example.com' },
+                { username: 'Kata', password: 'kata123', email: 'kata@example.com' }
+            ];
+
+            users.forEach(user => {
+                bcrypt.hash(user.password, 10, (err, hash) => {
                     if (err) {
-                        console.error('Hiba a felhasználó létrehozása során:', err);
+                        console.error('Hiba a jelszó titkosítása során:', err);
+                        return;
                     }
+                    db.run(`INSERT INTO users (username, password, email) VALUES (?, ?, ?)`,
+                        [user.username, hash, user.email],
+                        (err) => {
+                            if (err) {
+                                console.error('Hiba a felhasználó létrehozása során:', err);
+                            } else {
+                                console.log(`Felhasználó létrehozva: ${user.username}`);
+                            }
+                        });
                 });
-        });
+            });
+        }
     });
 });
 
