@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app.onrender.com'] : ['http://localhost:3000'],
+    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app-wbb8.onrender.com'] : ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -24,12 +24,13 @@ app.use(session({
         table: 'sessions'
     }),
     secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
-        sameSite: 'none'
+        sameSite: 'none',
+        httpOnly: true
     }
 }));
 
@@ -120,7 +121,9 @@ db.serialize(() => {
 
 // Middleware a bejelentkezés ellenőrzésére
 const requireLogin = (req, res, next) => {
+    console.log('Session check:', req.session);
     if (!req.session.userId) {
+        console.log('No user ID in session');
         res.status(401).json({ error: 'Bejelentkezés szükséges' });
         return;
     }
@@ -130,27 +133,41 @@ const requireLogin = (req, res, next) => {
 // Bejelentkezés
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    console.log('Login attempt:', username);
+    
     db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
         if (err) {
+            console.error('Database error:', err);
             res.status(500).json({ error: 'Hiba történt a bejelentkezés során' });
             return;
         }
         if (!user) {
+            console.log('User not found:', username);
             res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
             return;
         }
         try {
             if (await bcrypt.compare(password, user.password)) {
+                console.log('Login successful:', username);
                 req.session.userId = user.id;
-                res.json({ 
-                    id: user.id,
-                    username: user.username,
-                    email: user.email
+                req.session.save(err => {
+                    if (err) {
+                        console.error('Session save error:', err);
+                        res.status(500).json({ error: 'Hiba történt a bejelentkezés során' });
+                        return;
+                    }
+                    res.json({ 
+                        id: user.id,
+                        username: user.username,
+                        email: user.email
+                    });
                 });
             } else {
+                console.log('Invalid password for:', username);
                 res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
             }
         } catch (error) {
+            console.error('Password compare error:', error);
             res.status(500).json({ error: 'Hiba történt a jelszó ellenőrzése során' });
         }
     });
@@ -268,10 +285,12 @@ app.get('/api/users', requireLogin, (req, res) => {
 app.get('/api/user', requireLogin, (req, res) => {
     db.get('SELECT id, username, email FROM users WHERE id = ?', [req.session.userId], (err, user) => {
         if (err) {
+            console.error('Database error:', err);
             res.status(500).json({ error: err.message });
             return;
         }
         if (!user) {
+            console.log('User not found:', req.session.userId);
             res.status(404).json({ error: 'Felhasználó nem található' });
             return;
         }

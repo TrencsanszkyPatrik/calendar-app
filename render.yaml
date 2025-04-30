@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: calendar-app
+    name: calendar-app-wbb8
     env: node
     buildCommand: npm install
     startCommand: npm start
