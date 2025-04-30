@@ -1,0 +1,683 @@
+:root {
+    /* Light mode alapértékek */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --accent-color: #0d6efd;
+    --accent-hover: #0b5ed7;
+    --danger-color: #dc3545;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --holiday-bg: #fff3e6;
+    --today-bg: #e8f4ff;
+    --event-count-bg: rgba(0, 0, 0, 0.7);
+    --event-count-text: #ffffff;
+    --modal-bg: rgba(0, 0, 0, 0.5);
+    --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --patrik-event: #1e88e5;
+    --kata-event: #e91e63;
+    --important-event: #d32f2f;
+    --free-time-event: #43a047;
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --light-bg: #ffffff;
+    --dark-bg: #343a40;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #f8f9fa;
+    --text-secondary: #adb5bd;
+    --border-color: #495057;
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --danger-color: #ef4444;
+    --success-color: #22c55e;
+    --warning-color: #eab308;
+    --holiday-bg: #4a1c1c;
+    --today-bg: #1e3a8a;
+    --event-count-bg: rgba(255, 255, 255, 0.2);
+    --event-count-text: #ffffff;
+    --modal-bg: rgba(0, 0, 0, 0.7);
+    --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    --patrik-event: #64b5f6;
+    --kata-event: #f06292;
+    --important-event: #e57373;
+    --free-time-event: #81c784;
+    --primary-color: #0d6efd;
+    --secondary-color: #adb5bd;
+    --light-bg: #212529;
+    --dark-bg: #495057;
+    color: #fff;
+    background-color: var(--light-bg);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: var(--light-bg);
+    transition: background-color 0.3s ease;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-bg);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    background-color: var(--bg-primary);
+    margin: 10% auto;
+    padding: 20px;
+    width: 80%;
+    max-width: 600px;
+    border-radius: 5px;
+    box-shadow: var(--card-shadow);
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    box-shadow: var(--card-shadow);
+    font-size: 0.9rem;
+}
+
+.card-header {
+    padding: 0.5rem 1rem;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.card-header h5 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.card-body {
+    padding: 0.5rem;
+}
+
+#currentMonth {
+    font-size: 0.9rem;
+    margin: 0 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+}
+
+#eventsList {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+#eventsList::-webkit-scrollbar {
+    width: 8px;
+}
+
+#eventsList::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#eventsList::-webkit-scrollbar-thumb {
+    background: #0d6efd;
+    border-radius: 4px;
+}
+
+#eventsList::-webkit-scrollbar-thumb:hover {
+    background: #0b5ed7;
+}
+
+.event-item {
+    margin: 2px 0;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
+    border-left: 4px solid var(--border-color);
+}
+
+.event-item.important {
+    border-left-color: var(--important-event);
+    background-color: var(--important-event);
+    color: white;
+}
+
+.event-item.free-time {
+    border-left-color: var(--free-time-event);
+    background-color: var(--free-time-event);
+    color: white;
+}
+
+.event-item.blue {
+    border-left-color: var(--patrik-event);
+    background-color: var(--patrik-event);
+    color: white;
+}
+
+.event-item.pink {
+    border-left-color: var(--kata-event);
+    background-color: var(--kata-event);
+    color: white;
+}
+
+.event-time {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+.event-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.event-description {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.9;
+}
+
+.btn-primary {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.time-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.time-slot {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+}
+
+.hour {
+    width: 80px;
+    font-weight: bold;
+}
+
+.events {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.add-event-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.add-event-btn:hover {
+    background-color: #0b5ed7;
+}
+
+.event-item.shared {
+    border-left: 4px solid #0d6efd;
+}
+
+.close {
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--text-primary);
+}
+
+/* Naptár stílusok */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #dee2e6;
+    padding: 1px;
+}
+
+.calendar-day-header {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    text-align: center;
+    padding: 5px;
+    font-weight: bold;
+}
+
+.calendar-day {
+    position: relative;
+    min-height: 100px;
+    border: 1px solid var(--border-color);
+    padding: 5px;
+    cursor: pointer;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.calendar-day:hover {
+    background-color: var(--bg-secondary);
+}
+
+.calendar-day.empty {
+    background-color: var(--bg-secondary);
+    cursor: default;
+}
+
+.calendar-day.today {
+    background-color: var(--today-bg);
+    color: var(--text-primary);
+}
+
+.calendar-day.holiday {
+    background-color: var(--holiday-bg);
+    color: var(--text-primary);
+}
+
+.event-count {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: var(--event-count-bg);
+    color: var(--event-count-text);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    z-index: 1;
+}
+
+.day-name {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* Általános stílusok */
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Reszponzív dizájn */
+@media (max-width: 768px) {
+    .calendar-day {
+        min-height: 80px;
+    }
+    
+    .event-count {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+    
+    .day-name {
+        font-size: 8px;
+    }
+
+    .time-slot {
+        flex-direction: column;
+    }
+
+    .hour {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .events {
+        margin: 0;
+        width: 100%;
+    }
+}
+
+.day-header {
+    background-color: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #0d6efd;
+}
+
+.day-header h6 {
+    margin: 0;
+    color: #495057;
+}
+
+.creator, .shared-with {
+    font-size: 10px;
+    margin-top: 4px;
+    opacity: 0.8;
+}
+
+/* Dark mode toggle gomb */
+.theme-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1001;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Mobil nézet módosítások */
+@media (max-width: 768px) {
+    .card {
+        margin: 0.5rem 0;
+    }
+
+    .card-header {
+        padding: 0.4rem 0.8rem;
+    }
+
+    .card-body {
+        padding: 0.4rem;
+    }
+
+    #currentMonth {
+        font-size: 0.8rem;
+    }
+
+    .btn-sm {
+        padding: 0.15rem 0.3rem;
+        font-size: 0.75rem;
+    }
+
+    .theme-toggle {
+        top: 5px;
+        right: 5px;
+        width: 35px;
+        height: 35px;
+        font-size: 1rem;
+    }
+
+    .calendar-day {
+        padding: 0.4rem;
+        min-height: 50px;
+    }
+
+    .day-number {
+        font-size: 1rem;
+    }
+
+    .day-name {
+        font-size: 0.8rem;
+    }
+}
+
+/* Egyéb stílusok megtartása */
+.today {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.holiday {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Időpontok megjelenítése */
+.time-slots {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.time-slot {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.hour {
+    min-width: 60px;
+    font-weight: bold;
+}
+
+.events {
+    flex-grow: 1;
+    margin-left: 10px;
+}
+
+.add-event-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 5px;
+    margin-left: auto;
+    font-size: 14px;
+}
+
+.add-event-btn:hover {
+    text-decoration: underline;
+}
+
+/* Mobil nézet - heti nézet */
+@media (max-width: 768px) {
+    .calendar-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 5px;
+    }
+
+    .calendar-day-header {
+        display: none;
+    }
+
+    .calendar-day {
+        display: flex;
+        flex-direction: row;
+        min-height: 60px;
+        padding: 10px;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .calendar-day.empty {
+        display: none;
+    }
+
+    .day-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 80px;
+    }
+
+    .day-number {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    .day-name {
+        position: static;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .day-events {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .event-count {
+        position: static;
+        margin-left: auto;
+    }
+
+    .week-navigation {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background-color: var(--bg-secondary);
+        border-radius: 5px;
+        margin-bottom: 10px;
+    }
+
+    .week-title {
+        font-size: 1rem;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .nav-btn {
+        padding: 5px 10px;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .nav-btn:hover {
+        color: var(--accent-color);
+    }
+}
+
+/* Naptár rács - asztali nézet */
+@media (min-width: 769px) {
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+        padding: 10px;
+    }
+
+    .calendar-day-header {
+        text-align: center;
+        padding: 5px;
+        font-weight: bold;
+        font-size: 0.9rem;
+        background-color: var(--bg-secondary);
+        border-radius: 4px;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        position: relative;
+        min-height: 80px;
+        padding: 5px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: var(--bg-primary);
+    }
+
+    .calendar-day.empty {
+        background-color: var(--bg-secondary);
+    }
+
+    .day-number {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 2px;
+    }
+
+    .day-name {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+    }
+
+    .day-events {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .event-count {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 20px;
+        height: 20px;
+        font-size: 0.8rem;
+    }
+
+    .week-navigation {
+        display: none;
+    }
+} 

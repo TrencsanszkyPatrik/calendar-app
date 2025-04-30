@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naptár Alkalmazás</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Dark mode toggle -->
+    <button class="theme-toggle" id="themeToggle">
+        <i class="bi bi-moon-fill"></i>
+    </button>
+
+    <!-- Bejelentkezési modal -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Bejelentkezés</h5>
+                </div>
+                <div class="card-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginUsername" class="form-label">Felhasználónév</label>
+                            <input type="text" class="form-control" id="loginUsername" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Jelszó</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Bejelentkezés</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fő tartalom -->
+    <div id="mainContent" class="container mt-4" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Naptár Alkalmazás</h4>
+            <button id="logoutBtn" class="btn btn-outline-danger">
+                <i class="bi bi-box-arrow-right"></i> Kijelentkezés
+            </button>
+        </div>
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Naptár</h5>
+                        <div>
+                            <button id="prevMonth" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <span id="currentMonth"></span>
+                            <button id="nextMonth" class="btn btn-outline-primary btn-sm ms-2">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="calendarGrid" class="calendar-grid"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Események</h5>
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('newEventModal').style.display='block'">
+                            <i class="bi bi-plus"></i> Új esemény
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="eventsList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nap részletei modal -->
+    <div id="dayDetailsModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title" id="dayDetailsTitle"></h5>
+                    <button type="button" class="close" onclick="document.getElementById('dayDetailsModal').style.display='none'">&times;</button>
+                </div>
+                <div class="card-body">
+                    <div id="timeSlots" class="time-slots">
+                        <!-- Óránkénti beosztás ide kerül -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Új esemény modal -->
+    <div id="newEventModal" class="modal">
+        <div class="modal-content">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="modal-title">Új esemény hozzáadása</h5>
+                <button type="button" class="close" onclick="document.getElementById('newEventModal').style.display='none'">&times;</button>
+            </div>
+            <form id="newEventForm">
+                <div class="mb-3">
+                    <label for="eventTitle" class="form-label">Cím</label>
+                    <input type="text" class="form-control" id="eventTitle" required>
+                </div>
+                <div class="mb-3">
+                    <label for="eventDescription" class="form-label">Leírás</label>
+                    <textarea class="form-control" id="eventDescription" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="eventType" class="form-label">Típus</label>
+                    <select class="form-select" id="eventType" required>
+                        <option value="important">Fontos</option>
+                        <option value="free-time">Szabadidő</option>
+                    </select>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="eventStartTime" class="form-label">Kezdő idő</label>
+                        <input type="time" class="form-control" id="eventStartTime" required step="3600" min="00:00" max="23:00" data-bs-format="24">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="eventEndTime" class="form-label">Befejező idő</label>
+                        <input type="time" class="form-control" id="eventEndTime" required step="3600" min="01:00" max="23:59" data-bs-format="24">
+                    </div>
+                </div>
+                <input type="hidden" id="isShared" value="true">
+                <input type="hidden" id="sharedWith" value="1,2">
+                <button type="submit" class="btn btn-primary">Hozzáadás</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
