@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app-wbb8.onrender.com'] : ['http://localhost:3000'],
+    origin: process.env.NODE_ENV === 'production' ? 'https://calendar-app-wbb8.onrender.com' : 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -37,6 +37,7 @@ app.use(session({
 // Session ellenőrzése
 app.use((req, res, next) => {
     console.log('Session:', req.session);
+    console.log('Session ID:', req.sessionID);
     next();
 });
 
@@ -282,7 +283,14 @@ app.get('/api/users', requireLogin, (req, res) => {
 });
 
 // Felhasználói adatok lekérése
-app.get('/api/user', requireLogin, (req, res) => {
+app.get('/api/user', (req, res) => {
+    console.log('User request - Session:', req.session);
+    if (!req.session.userId) {
+        console.log('No user ID in session');
+        res.status(401).json({ error: 'Bejelentkezés szükséges' });
+        return;
+    }
+    
     db.get('SELECT id, username, email FROM users WHERE id = ?', [req.session.userId], (err, user) => {
         if (err) {
             console.error('Database error:', err);

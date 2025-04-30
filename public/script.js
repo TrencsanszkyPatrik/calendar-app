@@ -95,9 +95,12 @@ async function handleLogout() {
 
 // Naptár inicializálása
 function initCalendar() {
+    if (!currentUser) {
+        console.log('Nincs bejelentkezett felhasználó, nem inicializáljuk a naptárt');
+        return;
+    }
     updateCalendarHeader();
     generateCalendar();
-    loadEvents();
 }
 
 // Naptár fejléc frissítése
@@ -375,7 +378,7 @@ async function loadEvents() {
         });
         
         if (response.status === 401) {
-            // Ha nincs bejelentkezve, akkor megjelenítjük a bejelentkezési ablakot
+            console.log('Nincs bejelentkezve, megjelenítjük a bejelentkezési ablakot');
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
             return;
@@ -777,7 +780,10 @@ async function loadUsers() {
 async function checkAuth() {
     try {
         const response = await fetch(`${API_URL}/user`, {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
         if (response.ok) {
@@ -792,6 +798,7 @@ async function checkAuth() {
             await loadEvents();
             initCalendar();
         } else {
+            console.log('Nincs bejelentkezve, megjelenítjük a bejelentkezési ablakot');
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
         }
