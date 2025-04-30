@@ -13,12 +13,24 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Supabase kapcsolat ellenőrzése
+// Supabase kapcsolat és táblák ellenőrzése
 supabase.from('users').select('count').then(({ data, error }) => {
     if (error) {
         console.error('Hiba az adatbázis kapcsolódás során:', error);
+        console.log('Supabase URL:', supabaseUrl);
+        console.log('Supabase Key:', supabaseKey ? 'Beállítva' : 'Nincs beállítva');
     } else {
         console.log('Sikeresen csatlakoztunk az adatbázishoz!');
+        console.log('Felhasználók száma:', data[0].count);
+        
+        // Táblák ellenőrzése
+        supabase.from('events').select('count').then(({ data: eventsData, error: eventsError }) => {
+            if (eventsError) {
+                console.error('Hiba az events tábla ellenőrzése során:', eventsError);
+            } else {
+                console.log('Events tábla létezik, rekordok száma:', eventsData[0].count);
+            }
+        });
     }
 });
 
