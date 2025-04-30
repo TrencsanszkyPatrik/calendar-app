@@ -1,5 +1,5 @@
 // API URL
-const API_URL = 'https://calendar-app-wbb8.onrender.com/api';
+const API_URL = window.location.origin + '/api';
 
 // Globális változók
 let currentUser = null;
@@ -119,30 +119,52 @@ function toggleTheme() {
     }
 }
 
+function getWeekStart(date) {
+    const result = new Date(date);
+    const day = result.getDay();
+    const diff = result.getDate() - day + (day === 0 ? -6 : 1); // hétfővel kezdjük
+    result.setDate(diff);
+    result.setHours(0, 0, 0, 0);
+    return result;
+}
+
 // Naptár generálása
 function generateCalendar() {
     const calendarGrid = document.getElementById('calendarGrid');
+    if (!calendarGrid) return;
+    
     calendarGrid.innerHTML = '';
 
     // Képernyőméret ellenőrzése
     const isMobile = window.innerWidth <= 768;
 
     if (isMobile) {
+        currentWeekStart = getWeekStart(currentDate);
         generateWeekView(calendarGrid);
     } else {
         generateMonthView(calendarGrid);
     }
+
+    // Események betöltése és megjelenítése
+    loadEvents().then(() => {
+        updateEventCounts();
+    });
 }
 
 // Heti nézet generálása
 function generateWeekView(calendarGrid) {
+    // Töröljük a teljes tartalmat
+    while (calendarGrid.firstChild) {
+        calendarGrid.removeChild(calendarGrid.firstChild);
+    }
+
     // Heti navigáció hozzáadása
     const weekNav = document.createElement('div');
     weekNav.className = 'week-navigation';
     weekNav.innerHTML = `
-        <button class="nav-btn prev-week"><i class="bi bi-chevron-left"></i></button>
+        <button class="nav-btn" id="prevWeek">←</button>
         <div class="week-title"></div>
-        <button class="nav-btn next-week"><i class="bi bi-chevron-right"></i></button>
+        <button class="nav-btn" id="nextWeek">→</button>
     `;
     calendarGrid.appendChild(weekNav);
 
@@ -151,14 +173,14 @@ function generateWeekView(calendarGrid) {
 
     // Napok generálása
     for (let i = 0; i < 7; i++) {
-        const currentDate = new Date(currentWeekStart);
-        currentDate.setDate(currentWeekStart.getDate() + i);
+        const currentDayDate = new Date(currentWeekStart);
+        currentDayDate.setDate(currentWeekStart.getDate() + i);
 
         const dayElement = document.createElement('div');
         dayElement.className = 'calendar-day';
 
         // Mai nap kiemelése
-        if (isToday(currentDate)) {
+        if (isToday(currentDayDate)) {
             dayElement.classList.add('today');
         }
 
@@ -168,11 +190,12 @@ function generateWeekView(calendarGrid) {
         
         const dayNumber = document.createElement('div');
         dayNumber.className = 'day-number';
-        dayNumber.textContent = currentDate.getDate();
+        dayNumber.textContent = currentDayDate.getDate();
         
         const dayName = document.createElement('div');
         dayName.className = 'day-name';
-        dayName.textContent = dayNames[currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1];
+        const dayIndex = currentDayDate.getDay();
+        dayName.textContent = dayNames[dayIndex === 0 ? 6 : dayIndex - 1];
 
         dayInfo.appendChild(dayNumber);
         dayInfo.appendChild(dayName);
@@ -184,7 +207,7 @@ function generateWeekView(calendarGrid) {
         dayElement.appendChild(dayEvents);
 
         // Események számának megjelenítése
-        const dateStr = formatDate(currentDate);
+        const dateStr = formatDate(currentDayDate);
         const dayEventCount = events.filter(event => event.date === dateStr).length;
         if (dayEventCount > 0) {
             const countElement = document.createElement('div');
@@ -194,25 +217,40 @@ function generateWeekView(calendarGrid) {
         }
 
         // Ünnepnap ellenőrzése
-        const monthDay = `${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        const monthDay = `${String(currentDayDate.getMonth() + 1).padStart(2, '0')}-${String(currentDayDate.getDate()).padStart(2, '0')}`;
         if (holidays[monthDay]) {
             dayElement.classList.add('holiday');
             dayElement.title = holidays[monthDay];
         }
 
-        dayElement.addEventListener('click', () => showDayDetails(currentDate.getDate()));
+        dayElement.addEventListener('click', () => {
+            const clickedDate = new Date(currentDayDate);
+            showDayDetails(
+                clickedDate.getDate(),
+                clickedDate.getMonth(),
+                clickedDate.getFullYear()
+            );
+        });
         calendarGrid.appendChild(dayElement);
     }
 
     // Navigációs gombok eseménykezelői
-    document.querySelector('.prev-week').addEventListener('click', () => {
+    document.getElementById('prevWeek').addEventListener('click', () => {
         currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-        generateWeekView(calendarGrid);
+        currentDate = new Date(currentWeekStart);
+        currentMonth = currentDate.getMonth();
+        currentYear = currentDate.getFullYear();
+        updateCalendarHeader();
+        generateCalendar();
     });
 
-    document.querySelector('.next-week').addEventListener('click', () => {
+    document.getElementById('nextWeek').addEventListener('click', () => {
         currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-        generateWeekView(calendarGrid);
+        currentDate = new Date(currentWeekStart);
+        currentMonth = currentDate.getMonth();
+        currentYear = currentDate.getFullYear();
+        updateCalendarHeader();
+        generateCalendar();
     });
 }
 
@@ -286,7 +324,10 @@ function generateMonthView(calendarGrid) {
             dayElement.appendChild(countElement);
         }
 
-        dayElement.addEventListener('click', () => showDayDetails(day));
+        dayElement.addEventListener('click', () => {
+            selectedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            showDayDetails(day, currentMonth, currentYear);
+        });
         calendarGrid.appendChild(dayElement);
     }
 
@@ -331,10 +372,13 @@ async function loadEvents() {
         if (response.ok) {
             events = await response.json();
             updateEventCounts();
-            updateWeeklyEvents();
+            if (currentUser) {
+                updateWeeklyEvents();
+            }
         }
     } catch (error) {
         console.error('Hiba az események betöltésekor:', error);
+        events = []; // Hiba esetén üres tömb
     }
 }
 
@@ -342,10 +386,12 @@ async function loadEvents() {
 function updateEventCounts() {
     const calendarDays = document.querySelectorAll('.calendar-day:not(.empty)');
     calendarDays.forEach(day => {
-        const dayNumber = parseInt(day.textContent);
+        const dayNumber = day.querySelector('.day-number')?.textContent;
+        if (!dayNumber) return;
+
         const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-        
         const dayEvents = events.filter(event => event.date === dateKey);
+        
         if (dayEvents.length > 0) {
             let countElement = day.querySelector('.event-count');
             if (!countElement) {
@@ -354,25 +400,21 @@ function updateEventCounts() {
                 day.appendChild(countElement);
             }
             countElement.textContent = dayEvents.length;
-            countElement.style.display = 'block';
-        } else {
-            const countElement = day.querySelector('.event-count');
-            if (countElement) {
-                countElement.style.display = 'none';
-            }
         }
     });
 }
 
-// Heti események frissítése
+// Események megjelenítése
 function updateWeeklyEvents() {
     const eventsList = document.getElementById('eventsList');
+    if (!eventsList || !currentUser) return; // Ha nincs eventsList vagy nincs bejelentkezett felhasználó, kilépünk
+
     eventsList.innerHTML = '';
 
     // A jelenlegi hét kezdő és végdátuma (hétfőtől vasárnapig)
     const today = new Date();
     const currentDay = today.getDay();
-    const diff = currentDay === 0 ? -6 : 1 - currentDay; // Ha vasárnap van, akkor 6 napot visszamegyünk
+    const diff = currentDay === 0 ? -6 : 1 - currentDay;
     
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() + diff);
@@ -387,7 +429,6 @@ function updateWeeklyEvents() {
         const eventDate = new Date(event.date);
         const eventEndDate = new Date(event.date);
         
-        // Ha a befejezés időpontja kisebb, mint a kezdés, akkor átnyúlik az éjszakán
         if (event.endTime < event.startTime) {
             eventEndDate.setDate(eventEndDate.getDate() + 1);
         }
@@ -402,11 +443,9 @@ function updateWeeklyEvents() {
         const eventDate = new Date(event.date);
         const eventEndDate = new Date(event.date);
         
-        // Ha átnyúlik az éjszakán, akkor a következő napra is hozzáadjuk
         if (event.endTime < event.startTime) {
             eventEndDate.setDate(eventEndDate.getDate() + 1);
             
-            // Az esemény másolata a következő napra
             const nextDayEvent = { ...event };
             nextDayEvent.date = eventEndDate.toISOString().split('T')[0];
             nextDayEvent.startTime = '00:00';
@@ -458,9 +497,9 @@ function updateWeeklyEvents() {
                 <div class="event-time">${timeDisplay}</div>
                 <div class="event-title">${event.title}</div>
                 ${event.description ? `<div class="event-description">${event.description}</div>` : ''}
-                <div class="creator">Létrehozta: ${event.creator_name}</div>
+                <div class="creator">Létrehozta: ${event.creator_name || 'Ismeretlen'}</div>
                 ${event.shared_with ? `<div class="shared-with">Megosztva: ${event.shared_with}</div>` : ''}
-                ${event.creator_id === currentUser.id ? `<button onclick="deleteEvent('${event.id}')" class="btn btn-danger btn-sm">Törlés</button>` : ''}
+                ${currentUser && event.creator_id === currentUser.id ? `<button onclick="deleteEvent('${event.id}')" class="btn btn-danger btn-sm">Törlés</button>` : ''}
             `;
             eventsList.appendChild(eventElement);
         });
@@ -468,13 +507,13 @@ function updateWeeklyEvents() {
 }
 
 // Nap részleteinek megjelenítése
-async function showDayDetails(day) {
+async function showDayDetails(day, month, year) {
     if (!currentUser) {
         console.error('Nincs bejelentkezett felhasználó');
         return;
     }
 
-    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     selectedDate = dateKey;
     
     const dayEvents = events.filter(event => {
@@ -493,7 +532,7 @@ async function showDayDetails(day) {
     const title = document.getElementById('dayDetailsTitle');
     const timeSlots = document.getElementById('timeSlots');
     
-    title.textContent = `${currentYear}. ${monthNames[currentMonth]} ${day}.`;
+    title.textContent = `${year}. ${monthNames[month]} ${day}.`;
     timeSlots.innerHTML = '';
     
     // Órák generálása
@@ -564,15 +603,25 @@ async function showDayDetails(day) {
 async function addEvent(event) {
     event.preventDefault();
     
-    const title = document.getElementById('eventTitle').value;
-    const description = document.getElementById('eventDescription').value;
-    const eventType = document.getElementById('eventType').value;
-    const startTime = document.getElementById('eventStartTime').value;
-    const endTime = document.getElementById('eventEndTime').value;
+    const title = document.getElementById('eventTitle')?.value;
+    const description = document.getElementById('eventDescription')?.value;
+    const eventType = document.getElementById('eventType')?.value;
+    const startTime = document.getElementById('eventStartTime')?.value;
+    const endTime = document.getElementById('eventEndTime')?.value;
     const isShared = true;
     const sharedWith = [1, 2];
     
-    const date = selectedDate || `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+    if (!title || !startTime || !endTime) {
+        alert('Kérjük, töltse ki az összes kötelező mezőt!');
+        return;
+    }
+    
+    if (!selectedDate) {
+        alert('Kérjük, válasszon ki egy napot a naptárból!');
+        return;
+    }
+    
+    const date = selectedDate;
     
     if (endTime < startTime) {
         try {
@@ -622,9 +671,9 @@ async function addEvent(event) {
                 await loadEvents();
                 updateWeeklyEvents();
                 updateEventCounts();
-                generateCalendar(); // Naptár frissítése
+                generateCalendar();
                 if (selectedDate) {
-                    showDayDetails(parseInt(selectedDate.split('-')[2])); // Napi nézet frissítése
+                    showDayDetails(parseInt(selectedDate.split('-')[2]), parseInt(selectedDate.split('-')[1]), parseInt(selectedDate.split('-')[0]));
                 }
             } else {
                 const error = await response1.json() || await response2.json();
@@ -660,9 +709,9 @@ async function addEvent(event) {
                 await loadEvents();
                 updateWeeklyEvents();
                 updateEventCounts();
-                generateCalendar(); // Naptár frissítése
+                generateCalendar();
                 if (selectedDate) {
-                    showDayDetails(parseInt(selectedDate.split('-')[2])); // Napi nézet frissítése
+                    showDayDetails(parseInt(selectedDate.split('-')[2]), parseInt(selectedDate.split('-')[1]), parseInt(selectedDate.split('-')[0]));
                 }
             } else {
                 const error = await response.json();
@@ -693,7 +742,7 @@ async function deleteEvent(id) {
             updateEventCounts();
             generateCalendar(); // Naptár frissítése
             if (selectedDate) {
-                showDayDetails(parseInt(selectedDate.split('-')[2])); // Napi nézet frissítése
+                showDayDetails(parseInt(selectedDate.split('-')[2]), parseInt(selectedDate.split('-')[1]), parseInt(selectedDate.split('-')[0])); // Napi nézet frissítése
             }
         } else {
             const error = await response.json();
@@ -763,15 +812,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Bejelentkezés
     const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+
     const logoutBtn = document.getElementById('logoutBtn');
-    
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
     
     // Naptár navigáció
     const prevMonthBtn = document.getElementById('prevMonth');
-    const nextMonthBtn = document.getElementById('nextMonth');
-    
     if (prevMonthBtn) {
         prevMonthBtn.addEventListener('click', () => {
             currentMonth--;
@@ -784,6 +835,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    const nextMonthBtn = document.getElementById('nextMonth');
     if (nextMonthBtn) {
         nextMonthBtn.addEventListener('click', () => {
             currentMonth++;
@@ -798,17 +850,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Új esemény
     const newEventForm = document.getElementById('newEventForm');
-    if (newEventForm) newEventForm.addEventListener('submit', addEvent);
+    if (newEventForm) {
+        newEventForm.addEventListener('submit', addEvent);
+    }
     
     // Modal bezárása
     document.querySelectorAll('.close').forEach(closeBtn => {
-        closeBtn.addEventListener('click', () => {
-            closeBtn.closest('.modal').style.display = 'none';
-        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                const modal = closeBtn.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
     });
     
     // Értesítések engedélyezése
-    if (Notification.permission !== 'denied') {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
         Notification.requestPermission();
     }
 
@@ -817,6 +876,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
     }
+
+    // Képernyőméret változás figyelése
+    window.addEventListener('resize', () => {
+        generateCalendar();
+    });
+
+    // Naptár inicializálása
+    initCalendar();
 });
 
 // Értesítések kezelése

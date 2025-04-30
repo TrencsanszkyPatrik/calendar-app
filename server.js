@@ -11,29 +11,29 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: true, // Minden origin-t fogad el
+    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app.onrender.com'] : true,
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     store: new SQLiteStore({
         db: 'sessions.db',
         table: 'sessions'
     }),
-    secret: 'titkos_kulcs_ide',
+    secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         maxAge: 1000 * 60 * 60 * 24 * 7 // 1 hét
     }
 }));
 
 // Adatbázis inicializálása
-const db = new sqlite3.Database('calendar.db', (err) => {
+const db = new sqlite3.Database(path.join(__dirname, 'calendar.db'), (err) => {
     if (err) {
         console.error(err.message);
     }

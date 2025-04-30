@@ -3,9 +3,13 @@ services:
     name: calendar-app
     env: node
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000 
+        value: 10000
+      - key: SESSION_SECRET
+        value: titkos_kulcs_ide
+    healthCheckPath: /
+    autoDeploy: true 

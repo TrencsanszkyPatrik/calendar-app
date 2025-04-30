@@ -102,40 +102,41 @@
     <!-- Új esemény modal -->
     <div id="newEventModal" class="modal">
         <div class="modal-content">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="modal-title">Új esemény hozzáadása</h5>
-                <button type="button" class="close" onclick="document.getElementById('newEventModal').style.display='none'">&times;</button>
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Új esemény hozzáadása</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="card-body">
+                    <form id="newEventForm">
+                        <div class="mb-3">
+                            <label for="eventTitle" class="form-label">Esemény címe</label>
+                            <input type="text" class="form-control" id="eventTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventDescription" class="form-label">Leírás</label>
+                            <textarea class="form-control" id="eventDescription" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventType" class="form-label">Típus</label>
+                            <select class="form-control" id="eventType">
+                                <option value="meeting">Szabadidő</option>
+                                <option value="task">Fontos</option>
+                                <option value="reminder">KÖZÖS</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventStartTime" class="form-label">Kezdés</label>
+                            <input type="time" class="form-control" id="eventStartTime" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventEndTime" class="form-label">Befejezés</label>
+                            <input type="time" class="form-control" id="eventEndTime" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Esemény hozzáadása</button>
+                    </form>
+                </div>
             </div>
-            <form id="newEventForm">
-                <div class="mb-3">
-                    <label for="eventTitle" class="form-label">Cím</label>
-                    <input type="text" class="form-control" id="eventTitle" required>
-                </div>
-                <div class="mb-3">
-                    <label for="eventDescription" class="form-label">Leírás</label>
-                    <textarea class="form-control" id="eventDescription" rows="3"></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="eventType" class="form-label">Típus</label>
-                    <select class="form-select" id="eventType" required>
-                        <option value="important">Fontos</option>
-                        <option value="free-time">Szabadidő</option>
-                    </select>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="eventStartTime" class="form-label">Kezdő idő</label>
-                        <input type="time" class="form-control" id="eventStartTime" required step="3600" min="00:00" max="23:00" data-bs-format="24">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="eventEndTime" class="form-label">Befejező idő</label>
-                        <input type="time" class="form-control" id="eventEndTime" required step="3600" min="01:00" max="23:59" data-bs-format="24">
-                    </div>
-                </div>
-                <input type="hidden" id="isShared" value="true">
-                <input type="hidden" id="sharedWith" value="1,2">
-                <button type="submit" class="btn btn-primary">Hozzáadás</button>
-            </form>
         </div>
     </div>
 
