@@ -11,25 +11,25 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? 'https://calendar-app-wbb8.onrender.com' : 'http://localhost:3000',
+    origin: true, // Minden origin-t elfogadunk
     credentials: true,
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 app.use(session({
     store: new SQLiteStore({
         db: 'sessions.db',
         table: 'sessions'
     }),
     secret: process.env.SESSION_SECRET || 'titkos_kulcs_ide',
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // Development környezetben false
         maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
-        sameSite: 'none',
+        sameSite: 'lax',
         httpOnly: true
     }
 }));

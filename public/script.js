@@ -1,5 +1,7 @@
 // API URL
-const API_URL = window.location.origin + '/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api'
+    : 'https://calendar-app-wbb8.onrender.com/api';
 
 // Globális változók
 let currentUser = null;
@@ -63,6 +65,7 @@ async function handleLogin(event) {
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
             initCalendar();
+            console.log('Sikeres bejelentkezés:', currentUser);
         } else {
             const error = await response.json();
             alert(error.error || 'Hiba történt a bejelentkezés során');
@@ -386,6 +389,7 @@ async function loadEvents() {
         
         if (response.ok) {
             events = await response.json();
+            console.log('Események betöltve:', events);
             updateEventCounts();
             if (currentUser) {
                 updateWeeklyEvents();
@@ -793,6 +797,7 @@ async function checkAuth() {
                 username: user.username,
                 email: user.email
             };
+            console.log('Felhasználó bejelentkezve:', currentUser);
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             await loadEvents();
