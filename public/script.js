@@ -61,6 +61,7 @@ async function handleLogin(event) {
             };
             document.getElementById('authModal').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
+            await loadEvents();
             initCalendar();
         } else {
             const error = await response.json();
@@ -85,6 +86,7 @@ async function handleLogout() {
             document.getElementById('mainContent').style.display = 'none';
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('loginForm').reset();
+            events = [];
         }
     } catch (error) {
         console.error('Hiba:', error);
@@ -366,8 +368,18 @@ window.addEventListener('resize', () => {
 async function loadEvents() {
     try {
         const response = await fetch(`${API_URL}/events`, {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
+        
+        if (response.status === 401) {
+            // Ha nincs bejelentkezve, akkor megjelenítjük a bejelentkezési ablakot
+            document.getElementById('authModal').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+            return;
+        }
         
         if (response.ok) {
             events = await response.json();
@@ -375,10 +387,12 @@ async function loadEvents() {
             if (currentUser) {
                 updateWeeklyEvents();
             }
+        } else {
+            console.error('Hiba az események betöltésekor:', response.status);
         }
     } catch (error) {
         console.error('Hiba az események betöltésekor:', error);
-        events = []; // Hiba esetén üres tömb
+        events = [];
     }
 }
 
@@ -762,26 +776,21 @@ async function loadUsers() {
 // Bejelentkezés ellenőrzése
 async function checkAuth() {
     try {
-        const response = await fetch(`${API_URL}/events`, {
+        const response = await fetch(`${API_URL}/user`, {
             credentials: 'include'
         });
         
         if (response.ok) {
-            const userResponse = await fetch(`${API_URL}/user`, {
-                credentials: 'include'
-            });
-            
-            if (userResponse.ok) {
-                const user = await userResponse.json();
-                currentUser = {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email
-                };
-                document.getElementById('authModal').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-                initCalendar();
-            }
+            const user = await response.json();
+            currentUser = {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            };
+            document.getElementById('authModal').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            await loadEvents();
+            initCalendar();
         } else {
             document.getElementById('authModal').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';

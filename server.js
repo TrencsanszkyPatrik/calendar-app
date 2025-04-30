@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app.onrender.com'] : true,
+    origin: process.env.NODE_ENV === 'production' ? ['https://calendar-app.onrender.com'] : ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -28,9 +28,16 @@ app.use(session({
     saveUninitialized: false,
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 1 hét
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 hét
+        sameSite: 'none'
     }
 }));
+
+// Session ellenőrzése
+app.use((req, res, next) => {
+    console.log('Session:', req.session);
+    next();
+});
 
 // Adatbázis inicializálása
 const db = new sqlite3.Database(path.join(__dirname, 'calendar.db'), (err) => {
