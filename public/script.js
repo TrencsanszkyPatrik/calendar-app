@@ -1,5 +1,5 @@
 // API URL
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://calendar-app-wbb8.onrender.com/api';
 
 // Globális változók
 let currentUser = null;
