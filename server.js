@@ -46,34 +46,56 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
     try {
+        console.log('Bejelentkezési kísérlet:', username);
+        
+        // Először ellenőrizzük, hogy van-e felhasználó az adatbázisban
+        const { data: users, error: countError } = await supabase
+            .from('users')
+            .select('*');
+            
+        if (countError) {
+            console.error('Felhasználók lekérdezése sikertelen:', countError);
+            return res.status(500).json({ error: 'Adatbázis hiba történt' });
+        }
+        
+        console.log('Felhasználók az adatbázisban:', users);
+        
         // Felhasználó keresése
-        const { data: users, error } = await supabase
+        const { data: user, error } = await supabase
             .from('users')
             .select('*')
             .eq('username', username)
             .single();
         
-        if (error) throw error;
-        if (!users) {
+        if (error) {
+            console.error('Supabase hiba:', error);
+            return res.status(500).json({ error: 'Adatbázis hiba történt' });
+        }
+        
+        if (!user) {
+            console.log('Felhasználó nem található:', username);
             return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
         }
 
         // Jelszó ellenőrzése
-        const validPassword = await bcrypt.compare(password, users.password);
+        const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
+            console.log('Hibás jelszó a felhasználónak:', username);
             return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó' });
         }
 
         // Session beállítása
-        req.session.userId = users.id;
+        req.session.userId = user.id;
+        console.log('Sikeres bejelentkezés:', username);
+        
         res.json({ 
-            id: users.id,
-            username: users.username,
-            email: users.email
+            id: user.id,
+            username: user.username,
+            email: user.email
         });
     } catch (error) {
-        console.error('Hiba:', error);
-        res.status(500).json({ error: 'Hiba történt a bejelentkezés során' });
+        console.error('Bejelentkezési hiba részletei:', error);
+        res.status(500).json({ error: 'Hiba történt a bejelentkezés során: ' + error.message });
     }
 });
 
